@@ -1,8 +1,7 @@
-from bs4 import BeautifulSoup
-from scraper.parsers.html_parser import HTMLParser
-from scraper.parsers.metadata_parser import extract_metadata
-
-SAMPLE_HTML = """
+from bs4 import BeautifulSoup 
+from scraper .parsers .html_parser import HTMLParser 
+from scraper .parsers .metadata_parser import extract_metadata 
+SAMPLE_HTML ="""
 <!DOCTYPE html>
 <html>
 <head>
@@ -35,34 +34,25 @@ SAMPLE_HTML = """
 </body>
 </html>
 """
-
-
-def test_html_parser_extracts_headings_and_links():
-    parser = HTMLParser(SAMPLE_HTML, base_url="https://example.com/start")
-    page_data = parser.extract_page_data()
-
-    assert page_data.title == "OG Title" or page_data.title == "Sample Scraper Page"
-    assert len(page_data.headings) == 2
-    assert page_data.headings[0].level == 1
-    assert page_data.headings[0].text == "Main Page Title"
-
-    assert len(page_data.links) == 2
-    urls = [link.url for link in page_data.links]
-    assert "https://example.com/internal-link" in urls
-    assert "https://other.com/external" in urls
-
-    assert len(page_data.images) == 1
-    assert page_data.images[0].src == "https://example.com/img/logo.png"
-    assert page_data.images[0].alt == "Company Logo"
-
-
-def test_metadata_extraction():
-    soup = BeautifulSoup(SAMPLE_HTML, "html.parser")
-    meta = extract_metadata(soup, base_url="https://example.com/start")
-
-    assert meta.description == "OG Description" or meta.description == "A test page for web scraping validation."
-    assert meta.canonical == "https://example.com/canonical-page"
-    assert meta.twitter_card.get("twitter:card") == "summary_large_image"
-    assert len(meta.json_ld) == 1
-    assert meta.json_ld[0]["name"] == "Widget"
-
+def test_html_parser_extracts_headings_and_links ():
+    parser =HTMLParser (SAMPLE_HTML ,base_url ="https://example.com/start")
+    page_data =parser .extract_page_data ()
+    assert page_data .title =="OG Title"or page_data .title =="Sample Scraper Page"
+    assert len (page_data .headings )==2 
+    assert page_data .headings [0 ].level ==1 
+    assert page_data .headings [0 ].text =="Main Page Title"
+    assert len (page_data .links )==2 
+    urls =[link .url for link in page_data .links ]
+    assert "https://example.com/internal-link"in urls 
+    assert "https://other.com/external"in urls 
+    assert len (page_data .images )==1 
+    assert page_data .images [0 ].src =="https://example.com/img/logo.png"
+    assert page_data .images [0 ].alt =="Company Logo"
+def test_metadata_extraction ():
+    soup =BeautifulSoup (SAMPLE_HTML ,"html.parser")
+    meta =extract_metadata (soup ,base_url ="https://example.com/start")
+    assert meta .description =="OG Description"or meta .description =="A test page for web scraping validation."
+    assert meta .canonical =="https://example.com/canonical-page"
+    assert meta .twitter_card .get ("twitter:card")=="summary_large_image"
+    assert len (meta .json_ld )==1 
+    assert meta .json_ld [0 ]["name"]=="Widget"

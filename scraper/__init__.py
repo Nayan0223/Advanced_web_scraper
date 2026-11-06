@@ -1,5 +1,4 @@
 """Advanced Web Scraper Framework.
-
 A modern, high-performance, resilient web scraping framework featuring:
 - Hybrid scraping engine (Async HTTP via HTTPX & Dynamic Headless Browser via Playwright)
 - Anti-detection suite (User-Agent rotation, realistic headers, stealth fingerprinting)
@@ -10,6 +9,4 @@ A modern, high-performance, resilient web scraping framework featuring:
 - Modern Typer CLI with rich terminal formatting
 - Interactive FastAPI web dashboard and selector playground
 """
-
-__version__ = "2.0.0"
-
+__version__ ="2.0.0"

@@ -1,13 +1,10 @@
-"""Example: Writing a custom e-commerce product spider."""
-
-import sys
 from pathlib import Path
+import sys
 from typing import Any, List, Optional, Tuple
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-# Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scraper.config import ScraperConfig
@@ -16,7 +13,6 @@ from scraper.pipelines.exporter import DataExporter
 from scraper.spiders.base import BaseSpider
 
 
-# 1. Define custom data schema
 class CustomItem(BaseModel):
     title: str
     price: float
@@ -24,7 +20,6 @@ class CustomItem(BaseModel):
     page_url: str
 
 
-# 2. Subclass BaseSpider
 class BookCatalogSpider(BaseSpider):
     name = "custom_books"
     start_urls = ["https://books.toscrape.com/catalogue/category/books/travel_2/index.html"]
@@ -34,7 +29,6 @@ class BookCatalogSpider(BaseSpider):
         items: List[CustomItem] = []
         follow_links: List[str] = []
 
-        # Extract items
         for article in soup.select("article.product_pod"):
             title_tag = article.select_one("h3 a")
             price_tag = article.select_one("p.price_color")
@@ -55,7 +49,6 @@ class BookCatalogSpider(BaseSpider):
                     )
                 )
 
-        # Pagination
         next_btn = soup.select_one("li.next a")
         if next_btn and next_btn.get("href"):
             follow_links.append(urljoin(response.url, next_btn["href"]))

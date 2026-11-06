@@ -6,7 +6,6 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies for Playwright / Chromium
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libnss3 \

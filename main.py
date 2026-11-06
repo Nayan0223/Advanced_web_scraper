@@ -46,8 +46,8 @@ def run_legacy(args: list[str]) -> int:
         timeout=parsed.timeout,
     )
 
-    print(f"🚀 Launching Advanced Web Scraper on: {parsed.url}")
-    print(f"⚙️  Engine: {parsed.engine.upper()} | Pages: {parsed.pages} | Concurrency: {parsed.concurrency}")
+    print(f"Launching Advanced Web Scraper on: {parsed.url}")
+    print(f"Engine: {parsed.engine.upper()} | Pages: {parsed.pages} | Concurrency: {parsed.concurrency}")
 
     spider = GenericSpider(start_url=parsed.url, config=config)
 
@@ -58,7 +58,7 @@ def run_legacy(args: list[str]) -> int:
     items, stats = asyncio.run(_execute())
 
     DataExporter.export(items, parsed.output, file_format=fmt)
-    print(f"✓ Crawled {stats.pages_crawled} page(s) in {stats.duration_seconds}s. Saved to {parsed.output} ({fmt.upper()}).")
+    print(f"Crawled {stats.pages_crawled} page(s) in {stats.duration_seconds}s. Saved to {parsed.output} ({fmt.upper()}).")
     return 0
 
 
@@ -68,11 +68,9 @@ def main() -> int:
         cli_app()
         return 0
 
-    # If first arg starts with http or flags matching legacy style, run legacy
     if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1].startswith(("http://", "https://", "-o", "-f", "-p", "-d", "--delay"))):
         return run_legacy(sys.argv[1:])
 
-    # Otherwise delegate to modern CLI
     cli_app()
     return 0
 
