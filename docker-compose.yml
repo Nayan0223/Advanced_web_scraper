@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  scraper-ui:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - SCRAPER_ENGINE=http
+      - SCRAPER_CONCURRENCY=5
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+

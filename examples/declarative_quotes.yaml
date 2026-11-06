@@ -1,0 +1,12 @@
+name: quotes_scraper
+start_urls:
+  - "https://quotes.toscrape.com/"
+max_pages: 2
+container: "div.quote"
+fields:
+  text: "span.text"
+  author: "small.author"
+  author_link: "a[href*='/author/']@href"
+  tags: "a.tag | list"
+pagination: "li.next a@href"
+
