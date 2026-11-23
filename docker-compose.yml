@@ -1,14 +1,43 @@
-version: "3.8"
-
 services:
-  scraper-ui:
-    build: .
-    ports:
-      - "8000:8000"
+  db:
+    image: postgres:16-alpine
+    container_name: scraper-postgres
     environment:
-      - SCRAPER_ENGINE=http
-      - SCRAPER_CONCURRENCY=5
+      POSTGRES_USER: ${POSTGRES_USER:-scraper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scraper}
+      POSTGRES_DB: ${POSTGRES_DB:-scraper}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - ./data:/app/data
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-scraper} -d ${POSTGRES_DB:-scraper}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     restart: unless-stopped
 
+  scraper:
+    build: .
+    container_name: scraper-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scraper}:${POSTGRES_PASSWORD:-scraper}@db:5432/${POSTGRES_DB:-scraper}
+      SCRAPER_ENGINE: ${SCRAPER_ENGINE:-http}
+      SCRAPER_CONCURRENCY: ${SCRAPER_CONCURRENCY:-5}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+    restart: unless-stopped
+
+volumes:
+  pgdata:

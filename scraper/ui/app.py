@@ -1,311 +1,392 @@
-"""FastAPI Web UI and REST API for interactive web scraping and testing."""
-from __future__ import annotations 
-import asyncio 
-from typing import Any ,Dict ,List ,Optional 
-from fastapi import FastAPI ,HTTPException 
-from fastapi .responses import HTMLResponse ,JSONResponse 
-from pydantic import BaseModel ,Field 
-from scraper .config import ScraperConfig 
-from scraper .core .engine import get_engine 
-from scraper .parsers .html_parser import HTMLParser 
-from scraper .spiders import SPIDERS ,GenericSpider 
-app =FastAPI (
-title ="Advanced Web Scraper API & Dashboard",
-description ="Interactive control center for scraping, testing selectors, and crawling web data.",
-version ="2.0.0",
-)
-class ScrapeRequest (BaseModel ):
-    url :str 
-    engine :str ="http"
-class SelectorTestRequest (BaseModel ):
-    url :str 
-    selector :str 
-    engine :str ="http"
-class CrawlRequest (BaseModel ):
-    target :str 
-    engine :str ="http"
-    max_pages :int =5 
-    concurrency :int =3 
-    delay :float =0.5 
-DASHBOARD_HTML ="""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Web Scraper Playground</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
-</head>
-<body class="bg-slate-900 text-slate-100 min-h-screen" x-data="scraperApp()">
-    <!-- Navigation Bar -->
-    <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-            <div>
-                <h1 class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Advanced Web Scraper</h1>
-                <p class="text-xs text-slate-400">Hybrid Engine (HTTPX & Playwright) - Anti-Detection - Pydantic</p>
-            </div>
-        </div>
-        <div class="flex space-x-2">
-            <button @click="activeTab = 'scrape'" :class="activeTab === 'scrape' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 rounded-lg text-sm font-medium transition">Quick Inspector</button>
-            <button @click="activeTab = 'selector'" :class="activeTab === 'selector' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 rounded-lg text-sm font-medium transition">Selector Tester</button>
-            <button @click="activeTab = 'crawl'" :class="activeTab === 'crawl' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 rounded-lg text-sm font-medium transition">Multi-Page Crawler</button>
-        </div>
-    </header>
-    <main class="max-w-6xl mx-auto p-6">
-        <!-- TAB 1: QUICK INSPECTOR -->
-        <section x-show="activeTab === 'scrape'" class="space-y-6">
-            <div class="bg-slate-800/60 border border-slate-700/60 p-6 rounded-2xl shadow-xl">
-                <h2 class="text-lg font-semibold text-slate-200 mb-4">Inspect Single Web Page</h2>
-                <div class="flex flex-col sm:flex-row gap-4">
-                    <input type="url" x-model="inspectUrl" placeholder="https://quotes.toscrape.com/" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                    <select x-model="inspectEngine" class="bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                        <option value="http">Fast HTTP Engine (HTTPX)</option>
-                        <option value="browser">Headless Browser (Playwright)</option>
-                    </select>
-                    <button @click="inspectPage()" :disabled="loading" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-6 py-3 rounded-xl transition flex items-center justify-center space-x-2">
-                        <span x-show="!loading">Inspect Page</span>
-                        <span x-show="loading">Loading...</span>
-                    </button>
-                </div>
-            </div>
-            <!-- Inspect Result -->
-            <div x-show="inspectResult" class="bg-slate-800/60 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-6">
-                <div class="flex items-center justify-between border-b border-slate-700 pb-4">
-                    <div>
-                        <h3 class="text-xl font-bold text-white" x-text="inspectResult?.title || 'No Title Found'"></h3>
-                        <p class="text-sm text-cyan-400" x-text="inspectResult?.url"></p>
-                    </div>
-                    <div class="flex space-x-3 text-xs font-mono">
-                        <span class="bg-emerald-950 text-emerald-400 border border-emerald-800 px-3 py-1 rounded-full" x-text="'Status: ' + inspectResult?.status_code"></span>
-                        <span class="bg-blue-950 text-blue-400 border border-blue-800 px-3 py-1 rounded-full" x-text="inspectResult?.timing_ms + ' ms'"></span>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                        <h4 class="text-xs uppercase font-semibold text-slate-400 tracking-wider mb-2">Meta Description</h4>
-                        <p class="text-sm text-slate-300" x-text="inspectResult?.description || 'None detected'"></p>
-                    </div>
-                    <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                        <h4 class="text-xs uppercase font-semibold text-slate-400 tracking-wider mb-2">Summary Stats</h4>
-                        <div class="flex space-x-4 text-sm text-slate-300">
-                            <span>Headings: <strong class="text-cyan-400" x-text="inspectResult?.headings?.length || 0"></strong></span>
-                            <span>Links: <strong class="text-cyan-400" x-text="inspectResult?.links?.length || 0"></strong></span>
-                            <span>Images: <strong class="text-cyan-400" x-text="inspectResult?.images?.length || 0"></strong></span>
-                        </div>
-                    </div>
-                </div>
-                <!-- Extracted Headings -->
-                <div x-show="inspectResult?.headings?.length" class="space-y-2">
-                    <h4 class="text-sm font-semibold text-slate-300">Extracted Headings</h4>
-                    <div class="bg-slate-900 p-4 rounded-xl max-h-48 overflow-y-auto space-y-1 text-sm font-mono border border-slate-800">
-                        <template x-for="h in inspectResult?.headings" :key="h.text">
-                            <div class="text-slate-300"><span class="text-cyan-400 font-bold" x-text="'H' + h.level + ': '"></span><span x-text="h.text"></span></div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </section>
-        <!-- TAB 2: SELECTOR TESTER -->
-        <section x-show="activeTab === 'selector'" class="space-y-6">
-            <div class="bg-slate-800/60 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-4">
-                <h2 class="text-lg font-semibold text-slate-200">Interactive CSS Selector Tester</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <input type="url" x-model="testUrl" placeholder="https://quotes.toscrape.com/" class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                    <input type="text" x-model="testSelector" placeholder="div.quote span.text" class="bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                </div>
-                <button @click="testCssSelector()" :disabled="loading" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-6 py-3 rounded-xl transition">
-                    Test Selector Against URL
-                </button>
-            </div>
-            <!-- Selector Results -->
-            <div x-show="selectorMatches !== null" class="bg-slate-800/60 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-4">
-                <h3 class="text-sm font-semibold text-slate-300">
-                    Matches Found: <span class="text-cyan-400 font-bold" x-text="selectorMatches?.length || 0"></span>
-                </h3>
-                <div class="space-y-2 max-h-96 overflow-y-auto">
-                    <template x-for="(match, index) in selectorMatches" :key="index">
-                        <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-sm flex items-start space-x-3">
-                            <span class="text-cyan-400 font-mono text-xs mt-0.5" x-text="(index + 1) + '.'"></span>
-                            <span class="text-slate-200" x-text="match"></span>
-                        </div>
-                    </template>
-                </div>
-            </div>
-        </section>
-        <!-- TAB 3: MULTI-PAGE CRAWLER -->
-        <section x-show="activeTab === 'crawl'" class="space-y-6">
-            <div class="bg-slate-800/60 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-4">
-                <h2 class="text-lg font-semibold text-slate-200">Run Crawler</h2>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <input type="text" x-model="crawlTarget" placeholder="quotes OR https://quotes.toscrape.com/" class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Max Pages</label>
-                        <input type="number" x-model.number="crawlPages" min="1" max="20" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Concurrency</label>
-                        <input type="number" x-model.number="crawlConcurrency" min="1" max="10" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                    </div>
-                </div>
-                <button @click="startCrawl()" :disabled="loading" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-6 py-3 rounded-xl transition">
-                    <span x-show="!loading">Launch Crawl Job</span>
-                    <span x-show="loading">Crawling in progress...</span>
-                </button>
-            </div>
-            <!-- Crawl Results -->
-            <div x-show="crawlResults" class="bg-slate-800/60 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-4">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-base font-semibold text-slate-200">
-                        Extracted <span class="text-emerald-400" x-text="crawlResults?.items?.length || 0"></span> items
-                    </h3>
-                    <button @click="downloadJson()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg font-medium transition">
-                        Download JSON
-                    </button>
-                </div>
-                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 max-h-96 overflow-y-auto">
-                    <pre class="text-xs font-mono text-cyan-300" x-text="JSON.stringify(crawlResults?.items?.slice(0, 10), null, 2)"></pre>
-                </div>
-            </div>
-        </section>
-    </main>
-    <script>
-        function scraperApp() {
-            return {
-                activeTab: 'scrape',
-                loading: false,
-                inspectUrl: 'https://quotes.toscrape.com/',
-                inspectEngine: 'http',
-                inspectResult: null,
-                testUrl: 'https://quotes.toscrape.com/',
-                testSelector: 'div.quote span.text',
-                selectorMatches: null,
-                crawlTarget: 'quotes',
-                crawlPages: 3,
-                crawlConcurrency: 2,
-                crawlResults: null,
-                async inspectPage() {
-                    this.loading = true;
-                    this.inspectResult = null;
-                    try {
-                        const res = await fetch('/api/scrape', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({url: this.inspectUrl, engine: this.inspectEngine})
-                        });
-                        this.inspectResult = await res.json();
-                    } catch (e) {
-                        alert('Inspection failed: ' + e);
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                async testCssSelector() {
-                    this.loading = true;
-                    this.selectorMatches = null;
-                    try {
-                        const res = await fetch('/api/test-selector', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({url: this.testUrl, selector: this.testSelector})
-                        });
-                        const data = await res.json();
-                        this.selectorMatches = data.matches || [];
-                    } catch (e) {
-                        alert('Selector test failed: ' + e);
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                async startCrawl() {
-                    this.loading = true;
-                    this.crawlResults = null;
-                    try {
-                        const res = await fetch('/api/crawl', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({
-                                target: this.crawlTarget,
-                                max_pages: this.crawlPages,
-                                concurrency: this.crawlConcurrency,
-                            })
-                        });
-                        this.crawlResults = await res.json();
-                    } catch (e) {
-                        alert('Crawl failed: ' + e);
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                downloadJson() {
-                    if (!this.crawlResults?.items) return;
-                    const blob = new Blob([JSON.stringify(this.crawlResults.items, null, 2)], {type: 'application/json'});
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'scraped_items.json';
-                    a.click();
-                    URL.revokeObjectURL(url);
-                }
-            }
-        }
-    </script>
-</body>
-</html>
+"""FastAPI dashboard and REST API for Advanced Web Scraper.
+
+Crawl runs are persisted in PostgreSQL (jobs + JSONB records), the single page
+dashboard lives in ``scraper/ui/static`` and every endpoint degrades carefully
+when the database is unreachable.
 """
-@app .get ("/",response_class =HTMLResponse )
-async def dashboard_home ():
-    """Render interactive web dashboard."""
-    return DASHBOARD_HTML 
-@app .post ("/api/scrape")
-async def api_scrape (request :ScrapeRequest ):
-    """Fetch page and extract full metadata, headings, and text."""
-    cfg =ScraperConfig (engine ="browser"if request .engine .lower ()=="browser"else "http")
-    async with get_engine (cfg )as engine :
-        response =await engine .fetch (request .url )
-        if not response .is_success :
-            raise HTTPException (status_code =400 ,detail =response .error or "Fetch failed")
-        parser =HTMLParser (response .html ,response .url )
-        page_data =parser .extract_page_data ()
-        page_data .timing_ms =round (response .execution_time_seconds *1000 ,2 )
-        page_data .status_code =response .status_code 
-        return page_data .model_dump (mode ="json")
-@app .post ("/api/test-selector")
-async def api_test_selector (request :SelectorTestRequest ):
-    """Test a CSS selector against a target URL."""
-    cfg =ScraperConfig (engine ="browser"if request .engine .lower ()=="browser"else "http")
-    async with get_engine (cfg )as engine :
-        response =await engine .fetch (request .url )
-        if not response .is_success :
-            raise HTTPException (status_code =400 ,detail =response .error or "Fetch failed")
-        parser =HTMLParser (response .html ,response .url )
-        elements =parser .select (request .selector )
-        matches =[el .get_text (" ",strip =True )for el in elements ]
-        return {"selector":request .selector ,"count":len (matches ),"matches":matches }
-@app .post ("/api/crawl")
-async def api_crawl (request :CrawlRequest ):
-    """Execute a crawl asynchronously."""
-    cfg =ScraperConfig (
-    engine ="browser"if request .engine .lower ()=="browser"else "http",
-    max_pages =request .max_pages ,
-    concurrency =request .concurrency ,
-    delay =request .delay ,
+
+from __future__ import annotations
+
+import asyncio
+import csv
+import io
+import json
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from sqlalchemy.exc import SQLAlchemyError
+
+from scraper.config import ScraperConfig
+from scraper.core.engine import get_engine as create_scrape_engine
+from scraper.db import repository as repo
+from scraper.db.session import database_status, dispose_engine, init_db, ping
+from scraper.parsers.html_parser import HTMLParser
+from scraper.spiders import SPIDERS, GenericSpider
+
+logger = logging.getLogger(__name__)
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+PREVIEW_ITEMS = 50
+_progress_tasks: set[asyncio.Task] = set()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Create the PostgreSQL schema once, and close the pool on shutdown."""
+    await init_db()
+    yield
+    for task in list(_progress_tasks):
+        task.cancel()
+    await dispose_engine()
+
+
+app = FastAPI(
+    title="Advanced Web Scraper API & Dashboard",
+    description=(
+        "Hybrid HTTP/Playwright scraping framework with a PostgreSQL-backed "
+        "job history, live crawl progress and multi-format exports."
+    ),
+    version="2.1.0",
+    lifespan=lifespan,
+)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+# --------------------------------------------------------------------------- #
+# Request models
+# --------------------------------------------------------------------------- #
+class ScrapeRequest(BaseModel):
+    url: str = Field(..., description="Page to inspect")
+    engine: str = Field("http", description="'http' or 'browser'")
+
+
+class SelectorTestRequest(BaseModel):
+    url: str
+    selector: str
+    engine: str = "http"
+
+
+class CrawlRequest(BaseModel):
+    target: str = Field(..., description="Spider name ('quotes', 'books', 'news') or a URL")
+    engine: str = "http"
+    max_pages: int = Field(5, ge=1, le=200)
+    concurrency: int = Field(3, ge=1, le=20)
+    delay: float = Field(0.5, ge=0.0, le=60.0)
+    depth: int = Field(2, ge=0, le=10)
+
+
+# --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
+def _resolve_engine(engine: str) -> str:
+    return "browser" if engine.strip().lower() in {"browser", "playwright"} else "http"
+
+
+def _serialize(item: Any) -> Any:
+    if hasattr(item, "model_dump"):
+        return item.model_dump(mode="json")
+    return item
+
+
+def _db_unavailable(exc: Exception) -> HTTPException:
+    logger.warning("Database request failed: %s", exc)
+    return HTTPException(
+        status_code=503,
+        detail="PostgreSQL is unavailable. Start it (docker compose up -d db) and retry.",
     )
-    target_lower =request .target .lower ()
-    if target_lower in SPIDERS and target_lower !="generic":
-        spider =SPIDERS [target_lower ](config =cfg )
-    else :
-        spider =GenericSpider (start_url =request .target ,config =cfg )
-    items ,stats =await spider .run_async ()
+
+
+def _spawn(coro: Any) -> None:
+    """Fire-and-forget a background task while keeping a strong reference."""
+    task = asyncio.create_task(coro)
+    _progress_tasks.add(task)
+    task.add_done_callback(_progress_tasks.discard)
+
+
+def _flatten_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    row: Dict[str, Any] = {}
+    for key, value in (payload or {}).items():
+        if isinstance(value, (dict, list)):
+            row[key] = json.dumps(value, ensure_ascii=False, default=str)
+        else:
+            row[key] = value
+    return row
+
+
+def _csv_body(records: Sequence[Dict[str, Any]]) -> str:
+    rows = [_flatten_payload(record) for record in records]
+    fieldnames: List[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fieldnames:
+                fieldnames.append(key)
+    buffer = io.StringIO()
+    if fieldnames:
+        writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key, "") for key in fieldnames})
+    return buffer.getvalue()
+
+
+# --------------------------------------------------------------------------- #
+# Dashboard + system
+# --------------------------------------------------------------------------- #
+@app.get("/", include_in_schema=False)
+async def dashboard() -> FileResponse:
+    """Serve the single page control center."""
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/api/health", tags=["system"])
+async def api_health() -> Dict[str, Any]:
+    """Liveness probe plus the PostgreSQL connection state."""
+    ready = await ping()
+    status = database_status()
     return {
-    "items":[item .model_dump (mode ="json")if hasattr (item ,"model_dump")else item for item in items ],
-    "stats":stats .model_dump (mode ="json"),
+        "status": "ok",
+        "version": app.version,
+        "database": {
+            "ready": ready,
+            "url": status["url"],
+            "error": status["error"],
+        },
     }
-@app .get ("/api/spiders")
-async def api_list_spiders ():
-    """List registered spiders."""
-    return list (SPIDERS .keys ())
+
+
+@app.get("/api/stats", tags=["system"])
+async def api_stats() -> Dict[str, Any]:
+    """Aggregated counters, 7-day activity and recent jobs for the overview."""
+    try:
+        return await repo.dashboard_stats()
+    except SQLAlchemyError as exc:
+        raise _db_unavailable(exc) from exc
+    except OSError as exc:
+        raise _db_unavailable(exc) from exc
+
+
+@app.get("/api/spiders", tags=["system"])
+async def api_list_spiders() -> List[str]:
+    return list(SPIDERS.keys())
+
+
+# --------------------------------------------------------------------------- #
+# Inspector + selector lab (stateless)
+# --------------------------------------------------------------------------- #
+@app.post("/api/scrape", tags=["scraping"])
+async def api_scrape(request: ScrapeRequest) -> Dict[str, Any]:
+    """Fetch a page and return its metadata, headings, links and images."""
+    config = ScraperConfig(engine=_resolve_engine(request.engine))
+    async with create_scrape_engine(config) as engine:
+        response = await engine.fetch(request.url)
+        if not response.is_success:
+            raise HTTPException(status_code=400, detail=response.error or "Fetch failed")
+        parser = HTMLParser(response.html, response.url)
+        page = parser.extract_page_data()
+        page.timing_ms = round(response.execution_time_seconds * 1000, 2)
+        page.status_code = response.status_code
+        return page.model_dump(mode="json")
+
+
+@app.post("/api/test-selector", tags=["scraping"])
+async def api_test_selector(request: SelectorTestRequest) -> Dict[str, Any]:
+    """Evaluate a CSS selector against a live page."""
+    config = ScraperConfig(engine=_resolve_engine(request.engine))
+    async with create_scrape_engine(config) as engine:
+        response = await engine.fetch(request.url)
+        if not response.is_success:
+            raise HTTPException(status_code=400, detail=response.error or "Fetch failed")
+        parser = HTMLParser(response.html, response.url)
+        elements = parser.select(request.selector)
+        matches = [el.get_text(" ", strip=True) for el in elements]
+        return {"selector": request.selector, "count": len(matches), "matches": matches}
+
+
+# --------------------------------------------------------------------------- #
+# Crawl runs
+# --------------------------------------------------------------------------- #
+@app.post("/api/crawl", tags=["crawling"])
+async def api_crawl(request: CrawlRequest) -> Dict[str, Any]:
+    """Run a crawl, persist it to PostgreSQL and return a preview of its data."""
+    engine_name = _resolve_engine(request.engine)
+    config = ScraperConfig(
+        engine=engine_name,
+        max_pages=request.max_pages,
+        max_depth=request.depth,
+        concurrency=request.concurrency,
+        delay=request.delay,
+    )
+
+    target = request.target.strip()
+    key = target.lower()
+    if key in SPIDERS and key != "generic":
+        spider_name = key
+        spider = SPIDERS[key](config=config)
+    else:
+        spider_name = "generic"
+        spider = GenericSpider(start_url=target, config=config)
+
+    job_id: Optional[int] = None
+    try:
+        job = await repo.create_job(
+            target=target,
+            spider=spider_name,
+            engine=engine_name,
+            max_pages=request.max_pages,
+            concurrency=request.concurrency,
+            delay=request.delay,
+        )
+        job_id = int(job["id"])
+    except Exception as exc:  # database optional for a one-off crawl
+        logger.warning("Crawl will not be persisted (database error: %s)", exc)
+
+    def on_progress(url: str, pages: int, total: int) -> None:
+        if job_id is not None:
+            _spawn(repo.update_job_progress(job_id, pages_crawled=pages))
+
+    try:
+        items, stats = await spider.run_async(on_progress=on_progress)
+    except Exception as exc:
+        if job_id is not None:
+            try:
+                await repo.fail_job(job_id, str(exc))
+            except Exception:  # pragma: no cover - best effort
+                pass
+        logger.exception("Crawl failed for %s", target)
+        raise HTTPException(status_code=500, detail=f"Crawl failed: {exc}") from exc
+
+    job_data: Optional[Dict[str, Any]] = None
+    if job_id is not None:
+        try:
+            job_data = await repo.complete_job(job_id, stats=stats, items=items)
+        except Exception as exc:
+            logger.warning("Could not persist crawl results for job %s: %s", job_id, exc)
+            try:
+                await repo.fail_job(job_id, f"Persist failed: {exc}", stats=stats)
+            except Exception:  # pragma: no cover - best effort
+                pass
+
+    serialized = [_serialize(item) for item in items]
+    return {
+        "job": job_data,
+        "persisted": job_data is not None,
+        "items": serialized[:PREVIEW_ITEMS],
+        "items_total": len(serialized),
+        "items_truncated": len(serialized) > PREVIEW_ITEMS,
+        "stats": stats.model_dump(mode="json"),
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Job history
+# --------------------------------------------------------------------------- #
+@app.get("/api/jobs", tags=["jobs"])
+async def api_jobs(
+    limit: int = Query(25, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    status: Optional[str] = Query(None),
+    spider: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """Paginated, filterable list of stored crawl jobs."""
+    try:
+        jobs, total = await repo.list_jobs(
+            limit=limit, offset=offset, status=status, spider=spider, search=search
+        )
+    except (SQLAlchemyError, OSError) as exc:
+        raise _db_unavailable(exc) from exc
+    return {"jobs": jobs, "total": total, "limit": limit, "offset": offset}
+
+
+@app.get("/api/jobs/{job_id}", tags=["jobs"])
+async def api_job(job_id: int) -> Dict[str, Any]:
+    try:
+        job = await repo.get_job(job_id)
+    except (SQLAlchemyError, OSError) as exc:
+        raise _db_unavailable(exc) from exc
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return job
+
+
+@app.get("/api/jobs/{job_id}/items", tags=["jobs"])
+async def api_job_items(
+    job_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    search: Optional[str] = Query(None),
+    item_type: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """Records of one job with pagination and payload search."""
+    try:
+        if await repo.get_job(job_id) is None:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        items, total = await repo.get_job_items(
+            job_id, limit=limit, offset=offset, search=search, item_type=item_type
+        )
+    except (SQLAlchemyError, OSError) as exc:
+        raise _db_unavailable(exc) from exc
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+
+@app.get("/api/jobs/{job_id}/types", tags=["jobs"])
+async def api_job_types(job_id: int) -> List[str]:
+    try:
+        return await repo.distinct_item_types(job_id)
+    except (SQLAlchemyError, OSError) as exc:
+        raise _db_unavailable(exc) from exc
+
+
+@app.get("/api/jobs/{job_id}/export", tags=["jobs"])
+async def api_job_export(
+    job_id: int,
+    format: str = Query("json", pattern="^(json|jsonl|csv)$"),
+) -> Response:
+    """Download every record of a job as JSON, JSONL or CSV."""
+    try:
+        job = await repo.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        rows = await repo.all_job_items(job_id)
+    except (SQLAlchemyError, OSError) as exc:
+        raise _db_unavailable(exc) from exc
+
+    records = [row["payload"] for row in rows]
+    if format == "csv":
+        body = _csv_body(records)
+        media_type = "text/csv; charset=utf-8"
+    elif format == "jsonl":
+        body = "\n".join(json.dumps(record, ensure_ascii=False, default=str) for record in records)
+        body = f"{body}\n" if body else ""
+        media_type = "application/x-ndjson; charset=utf-8"
+    else:
+        body = json.dumps(
+            {"job": job, "items": records}, ensure_ascii=False, indent=2, default=str
+        )
+        media_type = "application/json; charset=utf-8"
+
+    filename = f"job-{job_id}-{job['spider']}.{format}"
+    return Response(
+        content=body,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.delete("/api/jobs/{job_id}", tags=["jobs"])
+async def api_delete_job(job_id: int) -> Dict[str, Any]:
+    """Delete a job and (via cascade) all of its records."""
+    try:
+        deleted = await repo.delete_job(job_id)
+    except (SQLAlchemyError, OSError) as exc:
+        raise _db_unavailable(exc) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return {"deleted": True, "id": job_id}

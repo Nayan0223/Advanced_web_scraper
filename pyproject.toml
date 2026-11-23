@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "advanced-web-scraper"
-version = "2.0.0"
-description = "High-performance resilient web scraping framework with hybrid HTTP/Playwright engine and anti-detection suite."
+version = "2.1.0"
+description = "High-performance resilient web scraping framework with hybrid HTTP/Playwright engine, anti-detection suite and PostgreSQL job storage."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -19,9 +19,12 @@ dependencies = [
     "rich>=13.7.0",
     "tenacity>=8.3.0",
     "fastapi>=0.110.0",
-    "uvicorn>=0.29.0",
+    "uvicorn[standard]>=0.29.0",
     "pyyaml>=6.0.1",
     "pandas>=2.2.0",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]
@@ -30,4 +33,7 @@ scraper = "scraper.cli:app"
 
 [tool.setuptools.packages.find]
 include = ["scraper*"]
+
+[tool.setuptools.package-data]
+scraper = ["ui/static/*"]
 

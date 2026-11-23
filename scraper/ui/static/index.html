@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Advanced Web Scraper · Control Center</title>
+<meta name="description" content="Hybrid HTTP + Playwright scraping framework with PostgreSQL job history." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236d8cff'/%3E%3Cstop offset='1' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M9 21c4 1 6-1 6-5s2-6 6-5' stroke='%23070912' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/styles.css?v=2.1" />
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24"><path d="m4 3 6.6 17.5 2.3-7.1 7.1-2.3Z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 3 2.6 15 0 18-2.6-3-2.6-15 0-18Z"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M21 3.5V9h-5.5"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4.5 14H11l-1 8 8.5-12H12l1-8Z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m6 7 1 14h10l1-14"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12"/><path d="m18 6-12 12"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4H5.5A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19Z"/><path d="M12 9v5"/><path d="M12 17.2v.1"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6"/><path d="m16 6 6 6-6 6"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+</svg>
+
+<div class="aurora" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><svg class="ico"><use href="#i-bolt"/></svg></div>
+      <div class="brand-text">
+        <strong>Web Scraper</strong>
+        <span>Control Center · v2.1</span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <span class="nav-label">Workspace</span>
+      <button class="nav-item is-active" data-view="overview">
+        <svg class="ico"><use href="#i-grid"/></svg><span>Overview</span>
+      </button>
+      <button class="nav-item" data-view="inspector">
+        <svg class="ico"><use href="#i-search"/></svg><span>Page Inspector</span>
+      </button>
+      <button class="nav-item" data-view="selector">
+        <svg class="ico"><use href="#i-cursor"/></svg><span>Selector Lab</span>
+      </button>
+      <span class="nav-label">Pipeline</span>
+      <button class="nav-item" data-view="crawler">
+        <svg class="ico"><use href="#i-globe"/></svg><span>Run Crawl</span>
+      </button>
+      <button class="nav-item" data-view="jobs">
+        <svg class="ico"><use href="#i-db"/></svg><span>Job History</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="db-card" id="db-card">
+        <div class="db-card-head">
+          <svg class="ico"><use href="#i-db"/></svg>
+          <span>PostgreSQL</span>
+          <span class="pill pill-ghost" id="db-pill">checking</span>
+        </div>
+        <code id="db-url">postgresql://…</code>
+      </div>
+      <p class="sidebar-note">Hybrid engine · HTTPX + Playwright</p>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="view-title">Overview</h1>
+        <p id="view-subtitle">Everything your crawlers collected, in one place.</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="pill" id="top-db-pill"><span class="dot"></span><span>DB</span></span>
+        <button class="btn btn-ghost" id="btn-refresh">
+          <svg class="ico"><use href="#i-refresh"/></svg><span>Refresh</span>
+        </button>
+        <button class="btn btn-primary" data-goto="crawler">
+          <svg class="ico"><use href="#i-play"/></svg><span>New crawl</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ================= OVERVIEW ================= -->
+      <section class="view is-active" data-view-panel="overview">
+        <div class="hero card">
+          <div class="hero-copy">
+            <span class="eyebrow"><span class="spark"></span> PostgreSQL-backed crawl history</span>
+            <h2>Crawl anything.<br /><span class="grad-text">Keep everything.</span></h2>
+            <p>Hybrid HTTP/2 and headless Chromium engines, anti-detection headers, proxy rotation, and Pydantic-validated records stored as JSONB.</p>
+            <div class="hero-actions">
+              <button class="btn btn-primary" data-goto="crawler"><svg class="ico"><use href="#i-play"/></svg><span>Launch a crawl</span></button>
+              <button class="btn btn-ghost" data-goto="inspector"><svg class="ico"><use href="#i-search"/></svg><span>Inspect a page</span></button>
+            </div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="orbit o1"><span></span></div>
+            <div class="orbit o2"><span></span></div>
+            <div class="orbit o3"><span></span></div>
+            <div class="hero-core"><svg class="ico"><use href="#i-globe"/></svg></div>
+          </div>
+        </div>
+
+        <div class="stat-grid" id="stat-grid">
+          <div class="card stat skeleton" style="--d:0"></div>
+          <div class="card stat skeleton" style="--d:1"></div>
+          <div class="card stat skeleton" style="--d:2"></div>
+          <div class="card stat skeleton" style="--d:3"></div>
+        </div>
+
+        <div class="split">
+          <div class="card">
+            <div class="card-head">
+              <div><h3>Activity</h3><p>Jobs and items captured over the last 7 days</p></div>
+              <span class="pill pill-ghost" id="activity-total">—</span>
+            </div>
+            <div class="chart" id="activity-chart"><div class="empty">No activity yet.</div></div>
+            <div class="chart-legend">
+              <span><i class="swatch sw-jobs"></i>Jobs</span>
+              <span><i class="swatch sw-items"></i>Items</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div><h3>Spider mix</h3><p>Where your records come from</p></div>
+            </div>
+            <div class="spider-list" id="spider-list"><div class="empty">No spiders have run yet.</div></div>
+            <div class="divider"></div>
+            <div class="mini-list" id="item-types"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Recent runs</h3><p>Click a row to inspect its dataset</p></div>
+            <button class="btn btn-ghost btn-sm" data-goto="jobs">All jobs<svg class="ico"><use href="#i-arrow"/></svg></button>
+          </div>
+          <div class="table-wrap" id="recent-jobs"><div class="empty">No crawl jobs recorded.</div></div>
+        </div>
+      </section>
+
+      <!-- ================= INSPECTOR ================= -->
+      <section class="view" data-view-panel="inspector">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Single page inspector</h3><p>Fetch a URL and extract metadata, headings, links and images</p></div>
+            <span class="pill pill-ghost"><svg class="ico"><use href="#i-code"/></svg>raw HTML → Pydantic</span>
+          </div>
+          <form class="form-row" id="inspect-form">
+            <label class="field grow">
+              <span>Target URL</span>
+              <input type="url" id="inspect-url" value="https://quotes.toscrape.com/" placeholder="https://example.com" required />
+            </label>
+            <label class="field">
+              <span>Engine</span>
+              <select id="inspect-engine">
+                <option value="http">HTTPX · fast</option>
+                <option value="browser">Chromium · JS</option>
+              </select>
+            </label>
+            <button class="btn btn-primary" type="submit" id="inspect-submit">
+              <svg class="ico"><use href="#i-search"/></svg><span>Inspect</span>
+            </button>
+          </form>
+        </div>
+        <div id="inspect-result"></div>
+      </section>
+
+      <!-- ================= SELECTOR LAB ================= -->
+      <section class="view" data-view-panel="selector">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Selector lab</h3><p>Test CSS selectors against a live page before writing a spider</p></div>
+            <span class="pill pill-ghost">CSS3</span>
+          </div>
+          <form class="form-row" id="selector-form">
+            <label class="field grow">
+              <span>Page URL</span>
+              <input type="url" id="selector-url" value="https://quotes.toscrape.com/" required />
+            </label>
+            <label class="field grow">
+              <span>CSS selector</span>
+              <input type="text" id="selector-css" value="div.quote span.text" required />
+            </label>
+            <button class="btn btn-primary" type="submit" id="selector-submit">
+              <svg class="ico"><use href="#i-play"/></svg><span>Run</span>
+            </button>
+          </form>
+          <div class="chips" id="selector-chips">
+            <button class="chip" data-selector="div.quote span.text">div.quote span.text</button>
+            <button class="chip" data-selector="div.quote small.author">div.quote small.author</button>
+            <button class="chip" data-selector="a.tag">a.tag</button>
+            <button class="chip" data-selector="li.next a">li.next a</button>
+            <button class="chip" data-selector="h1">h1</button>
+          </div>
+        </div>
+        <div id="selector-result"></div>
+      </section>
+
+      <!-- ================= CRAWLER ================= -->
+      <section class="view" data-view-panel="crawler">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Launch a crawl</h3><p>Every run is persisted to PostgreSQL with its full dataset</p></div>
+            <span class="pill pill-ghost"><svg class="ico"><use href="#i-db"/></svg>JSONB storage</span>
+          </div>
+          <form id="crawl-form" class="crawl-form">
+            <label class="field grow">
+              <span>Target — spider name or URL</span>
+              <input type="text" id="crawl-target" value="quotes" placeholder="quotes · books · news · https://…" required />
+            </label>
+            <label class="field">
+              <span>Engine</span>
+              <select id="crawl-engine">
+                <option value="http">HTTPX</option>
+                <option value="browser">Chromium</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Max pages</span>
+              <input type="number" id="crawl-pages" value="3" min="1" max="200" />
+            </label>
+            <label class="field">
+              <span>Concurrency</span>
+              <input type="number" id="crawl-concurrency" value="3" min="1" max="20" />
+            </label>
+            <label class="field">
+              <span>Delay (s)</span>
+              <input type="number" id="crawl-delay" value="0.4" min="0" max="30" step="0.1" />
+            </label>
+          </form>
+          <div class="chips" id="spider-chips"></div>
+          <div class="form-foot">
+            <p class="hint">Tip: a bare URL uses the generic spider, which follows same-domain links up to depth 2.</p>
+            <button class="btn btn-primary" id="crawl-submit">
+              <svg class="ico"><use href="#i-bolt"/></svg><span>Start crawl</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="card progress-card" id="crawl-progress" hidden>
+          <div class="progress-head">
+            <div class="progress-title">
+              <span class="spinner"></span>
+              <div>
+                <strong id="progress-target">Crawling…</strong>
+                <span id="progress-meta">warming up the engine</span>
+              </div>
+            </div>
+            <span class="mono" id="progress-elapsed">0.0s</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:6%"></div></div>
+          <div class="progress-foot"><span id="progress-pages">0 pages</span><span id="progress-status">queued</span></div>
+        </div>
+
+        <div id="crawl-result"></div>
+      </section>
+
+      <!-- ================= JOBS ================= -->
+      <section class="view" data-view-panel="jobs">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Job history</h3><p>Every crawl stored in PostgreSQL, searchable and exportable</p></div>
+            <span class="pill pill-ghost" id="jobs-total">—</span>
+          </div>
+          <div class="toolbar">
+            <div class="segmented" id="jobs-filter">
+              <button class="seg is-active" data-status="all">All</button>
+              <button class="seg" data-status="success">Success</button>
+              <button class="seg" data-status="failed">Failed</button>
+              <button class="seg" data-status="running">Running</button>
+            </div>
+            <label class="field search-field">
+              <svg class="ico"><use href="#i-search"/></svg>
+              <input type="search" id="jobs-search" placeholder="Filter by target…" />
+            </label>
+          </div>
+          <div class="table-wrap" id="jobs-table"><div class="empty">Loading jobs…</div></div>
+          <div class="pager" id="jobs-pager"></div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-card">
+    <header class="modal-head">
+      <div>
+        <h3 id="modal-title">Job</h3>
+        <p id="modal-subtitle"></p>
+      </div>
+      <button class="icon-btn" data-close-modal aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button>
+    </header>
+    <div class="modal-body" id="modal-body"></div>
+    <footer class="modal-foot" id="modal-foot"></footer>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="/static/app.js?v=2.1"></script>
+</body>
+</html>

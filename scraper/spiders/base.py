@@ -2,7 +2,7 @@
 from __future__ import annotations 
 import abc 
 import asyncio 
-from typing import Any ,List ,Optional ,Tuple 
+from typing import Any ,Callable ,List ,Optional ,Tuple 
 from scraper .config import ScraperConfig 
 from scraper .core .crawler import AsyncCrawler 
 from scraper .core .engine import BaseEngine ,get_engine 
@@ -19,9 +19,13 @@ class BaseSpider (abc .ABC ):
     def parse (self ,response :ScrapeResponse ,depth :int )->Tuple [List [Any ],List [str ]]:
         """Parse response and return a tuple of (extracted_items, follow_links)."""
         raise NotImplementedError 
-    async def run_async (self ,engine :Optional [BaseEngine ]=None )->Tuple [List [Any ],CrawlStats ]:
-        """Execute the spider asynchronously."""
-        crawler =AsyncCrawler (config =self .config ,engine =engine )
+    async def run_async (
+        self ,
+        engine :Optional [BaseEngine ]=None ,
+        on_progress :Optional [Callable [[str ,int ,int ],None ]]=None ,
+    )->Tuple [List [Any ],CrawlStats ]:
+        """Execute the spider asynchronously, optionally reporting page progress."""
+        crawler =AsyncCrawler (config =self .config ,engine =engine ,on_progress =on_progress )
         items ,stats =await crawler .crawl (
         seeds =self .start_urls ,
         page_handler =self .parse ,

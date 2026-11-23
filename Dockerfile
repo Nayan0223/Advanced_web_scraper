@@ -2,36 +2,28 @@ FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
+# curl backs the container healthcheck, libatomic1 lets playwright's bundled
+# Node run before it installs Chromium's remaining shared libraries.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
-RUN playwright install chromium
+
+# Headless Chromium plus every system library it needs.
+RUN playwright install --with-deps chromium
 
 COPY . .
 
 EXPOSE 8000
 
-CMD ["python", "-m", "scraper.cli", "serve", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8000/api/health || exit 1
 
+CMD ["python", "-m", "scraper.cli", "serve", "--host", "0.0.0.0", "--port", "8000"]

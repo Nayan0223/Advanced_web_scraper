@@ -8,5 +8,6 @@ A modern, high-performance, resilient web scraping framework featuring:
 - Asynchronous crawler with BFS frontier, rate limiting, and deduplication
 - Modern Typer CLI with rich terminal formatting
 - Interactive FastAPI web dashboard and selector playground
+- PostgreSQL persistence for crawl jobs and extracted records (SQLAlchemy 2.x + asyncpg)
 """
-__version__ ="2.0.0"
+__version__ = "2.1.0"
