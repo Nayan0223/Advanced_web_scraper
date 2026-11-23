@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
@@ -159,6 +159,24 @@ async def api_health() -> Dict[str, Any]:
             "error": status["error"],
         },
     }
+
+
+@app.get("/api/ready", tags=["system"])
+async def api_ready() -> JSONResponse:
+    """Readiness probe: fails with 503 when PostgreSQL is unreachable.
+
+    Used as the container/Railway healthcheck so a missing ``DATABASE_URL``
+    wiring shows up as an unhealthy deployment instead of a silently degraded app.
+    """
+    ready = await ping()
+    status = database_status()
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={
+            "ready": ready,
+            "database": {"ready": ready, "url": status["url"], "error": status["error"]},
+        },
+    )
 
 
 @app.get("/api/stats", tags=["system"])

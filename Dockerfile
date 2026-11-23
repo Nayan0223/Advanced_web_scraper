@@ -24,7 +24,7 @@ COPY . .
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8000/api/health || exit 1
+    CMD curl -fsS http://127.0.0.1:${PORT:-8000}/api/ready || exit 1
 
 # The serve command honours $PORT (Railway, Render, Fly) and falls back to 8000.
 CMD ["python", "-m", "scraper.cli", "serve", "--host", "0.0.0.0"]

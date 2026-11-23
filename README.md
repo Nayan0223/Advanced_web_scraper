@@ -85,8 +85,8 @@ docker compose exec db psql -U scraper -d scraper -c 'select count(*) from scrap
 
 **Deploy on Railway**
 
-`railway.json` is included: Railway builds the `Dockerfile`, probes `/api/health`, and restarts the
-service on failure. The dashboard reads `$PORT` automatically.
+`railway.json` is included: Railway builds the `Dockerfile`, probes `/api/ready` (503 until
+PostgreSQL answers), and restarts the service on failure. The dashboard reads `$PORT` automatically.
 
 1. **New Project → Deploy from GitHub repo** and pick `Nayan0223/Advanced_web_scraper`
    (the `main` branch that contains `railway.json`).
@@ -157,7 +157,8 @@ DataExporter.export(items, "quotes.csv", file_format="csv")
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/` | Control center (overview, inspector, selector lab, crawler, job history) |
-| GET | `/api/health` | App version and PostgreSQL status (used by Docker healthcheck) |
+| GET | `/api/health` | App version and PostgreSQL status (always 200; liveness) |
+| GET | `/api/ready` | Readiness probe — 503 when PostgreSQL is unreachable (Docker/Railway healthcheck) |
 | GET | `/api/stats` | Totals, success rate, 7-day activity, spider mix, recent jobs |
 | GET | `/api/spiders` | Registered spider names |
 | POST | `/api/scrape` | Inspect one page (stateless) |
