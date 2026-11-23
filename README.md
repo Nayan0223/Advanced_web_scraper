@@ -83,6 +83,25 @@ docker compose exec db psql -U scraper -d scraper -c 'select count(*) from scrap
 
 ---
 
+**Deploy on Railway**
+
+`railway.json` is included: Railway builds the `Dockerfile`, probes `/api/health`, and restarts the
+service on failure. The dashboard reads `$PORT` automatically.
+
+1. **New Project → Deploy from GitHub repo** and pick `Nayan0223/Advanced_web_scraper`
+   (the `main` branch that contains `railway.json`).
+2. **New → Database → PostgreSQL** in the same project.
+3. On the app service open **Variables** and add
+   `DATABASE_URL = ${{Postgres.DATABASE_URL}}` — the reference form uses Railway's
+   private network, so no SSL is needed. A public URL with `?sslmode=require` also works;
+   the DSN is translated for asyncpg automatically.
+4. **Settings → Networking → Generate Domain** to get a public URL.
+
+Tables are created on first boot. The image bundles Chromium, so the `browser` engine works
+there too — expect a slow first build (roughly 1–2 GB of image layers).
+
+---
+
 **Local development (without Docker for the app)**
 
 ```bash

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional
+from typing import Any, AsyncIterator, Dict, Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import text
@@ -66,12 +66,36 @@ def redact_database_url(url: Optional[str] = None) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, parts.query, ""))
 
 
+_SSL_MODES = {"require", "verify-ca", "verify-full", "prefer"}
+
+
+def ssl_connect_args(raw_url: Optional[str] = None) -> Dict[str, Any]:
+    """Translate libpq ``sslmode`` into asyncpg connect arguments.
+
+    Hosted providers (Railway, Heroku, Neon, …) hand out URLs containing
+    ``?sslmode=require``; asyncpg rejects that query parameter, so it is
+    stripped from the DSN and re-expressed as an ``ssl`` connect argument.
+    """
+    target = raw_url or os.getenv("DATABASE_URL") or DEFAULT_DATABASE_URL
+    try:
+        params = dict(parse_qsl(urlsplit(target.strip()).query))
+    except ValueError:
+        return {}
+    mode = params.get("sslmode", "").lower()
+    if mode in _SSL_MODES:
+        return {"ssl": True}
+    if mode == "disable":
+        return {"ssl": False}
+    return {}
+
+
 def get_engine() -> AsyncEngine:
     """Lazily build the process-wide async engine."""
     global _engine
     if _engine is None:
         _engine = create_async_engine(
             get_database_url(),
+            connect_args=ssl_connect_args(),
             pool_pre_ping=True,
             pool_size=5,
             max_overflow=10,

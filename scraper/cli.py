@@ -1,6 +1,7 @@
 """Command-Line Interface for Advanced Web Scraper with Rich formatting."""
 from __future__ import annotations 
 import asyncio 
+import os 
 from pathlib import Path 
 from typing import Optional 
 import typer 
@@ -193,8 +194,8 @@ def list_spiders ():
     console .print (table )
 @app .command ("serve")
 def serve_ui (
-host :str =typer .Option ("127.0.0.1","--host","-h",help ="Bind host"),
-port :int =typer .Option (8000 ,"--port","-p",help ="Bind port"),
+host :str =typer .Option (os .getenv ("HOST","127.0.0.1"),"--host","-h",help ="Bind host (env: HOST)"),
+port :int =typer .Option (int (os .getenv ("PORT","8000")),"--port","-p",help ="Bind port (env: PORT)"),
 reload :bool =typer .Option (False ,"--reload",help ="Enable auto-reload for development"),
 ):
     """Launch the interactive web UI and API server."""
