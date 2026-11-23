@@ -102,6 +102,37 @@ there too — expect a slow first build (roughly 1–2 GB of image layers).
 
 ---
 
+**Free hosting (no paid plan)**
+
+The app only needs two things: a Docker host and a PostgreSQL URL.
+
+*Hugging Face Spaces + Neon — free indefinitely, best for a public demo*
+
+1. **Neon** → new project → copy the connection string (`postgresql://…?sslmode=require` is fine;
+   the DSN is translated for asyncpg automatically).
+2. **Hugging Face** → *New Space* → **SDK: Docker** → *Blank*.
+3. Push this repository to the Space's git remote (the `Dockerfile` stays at the root).
+4. Space → **Settings → Variables and secrets**: add the secret `DATABASE_URL` with the Neon string.
+5. Add the variable `PORT=7860` — Spaces only route traffic to port 7860.
+6. Push; the Space builds and serves the dashboard on a public `*.hf.space` URL.
+
+Free Spaces sleep after ~48 h of inactivity and wake on the next visit; records live in Neon,
+so restarts lose nothing.
+
+*Render / Koyeb free web service*
+
+Free instances have 512 MB of RAM and sleep when idle, so skip Chromium and point
+`DATABASE_URL` at a free Neon or Supabase database:
+
+```bash
+docker build --build-arg INSTALL_BROWSER=false -t advanced-web-scraper .
+```
+
+With `INSTALL_BROWSER=false` the image is roughly a third of the size and the HTTPX engine
+handles every built-in spider; only the Playwright engine is unavailable.
+
+---
+
 **Local development (without Docker for the app)**
 
 ```bash

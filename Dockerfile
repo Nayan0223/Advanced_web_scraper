@@ -17,7 +17,14 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Headless Chromium plus every system library it needs.
-RUN playwright install --with-deps chromium
+# Build with --build-arg INSTALL_BROWSER=false for a much smaller image that
+# only uses the HTTPX engine (needed on 512 MB free instances).
+ARG INSTALL_BROWSER=true
+RUN if [ "$INSTALL_BROWSER" = "true" ]; then \
+        playwright install --with-deps chromium; \
+    else \
+        echo "Skipping Chromium — browser engine will be unavailable"; \
+    fi
 
 COPY . .
 
